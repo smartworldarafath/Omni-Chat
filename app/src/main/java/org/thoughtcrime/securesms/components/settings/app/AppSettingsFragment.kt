@@ -1,5 +1,6 @@
 package org.thoughtcrime.securesms.components.settings.app
 
+import androidx.compose.animation.AnimatedVisibility
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -115,6 +118,7 @@ class AppSettingsFragment : ComposeFragment(), Callbacks {
             is AppSettingsRoute.BackupsRoute.Backups -> findNavController().safeNavigate(R.id.action_appSettingsFragment_to_backupsSettingsFragment)
             is AppSettingsRoute.DataAndStorageRoute.DataAndStorage -> findNavController().safeNavigate(R.id.action_appSettingsFragment_to_dataAndStorageSettingsFragment)
             is AppSettingsRoute.AppUpdates -> findNavController().safeNavigate(R.id.action_appSettingsFragment_to_appUpdatesSettingsFragment)
+            is AppSettingsRoute.Dashboard -> findNavController().safeNavigate(R.id.action_appSettingsFragment_to_dashboardSettingsFragment)
             is AppSettingsRoute.Payments -> findNavController().safeNavigate(R.id.action_appSettingsFragment_to_paymentsActivity)
             is AppSettingsRoute.HelpRoute.Settings -> findNavController().safeNavigate(R.id.action_appSettingsFragment_to_helpSettingsFragment)
             is AppSettingsRoute.Invite -> findNavController().safeNavigate(R.id.action_appSettingsFragment_to_inviteFragment)
@@ -210,6 +214,15 @@ private fun AppSettingsContent(
   callbacks: Callbacks
 ) {
   val isRegisteredAndUpToDate by rememberUpdatedState(state.isRegisteredAndUpToDate())
+  var isSettingsSearchOpen by remember { mutableStateOf(false) }
+  var settingsQuery by remember { mutableStateOf("") }
+  val normalizedSettingsQuery = settingsQuery.trim().lowercase()
+
+  fun shouldShowSettingsRow(vararg terms: String): Boolean {
+    return normalizedSettingsQuery.isBlank() || terms.any { term ->
+      term.lowercase().contains(normalizedSettingsQuery)
+    }
+  }
 
   Scaffolds.Settings(
     title = stringResource(R.string.text_secure_normal__menu_settings),
@@ -229,6 +242,15 @@ private fun AppSettingsContent(
           BioRow(
             self = self,
             callbacks = callbacks
+          )
+        }
+
+        item {
+          SettingsSearchRow(
+            isOpen = isSettingsSearchOpen,
+            query = settingsQuery,
+            onOpenChanged = { isSettingsSearchOpen = it },
+            onQueryChanged = { settingsQuery = it }
           )
         }
 
@@ -301,152 +323,185 @@ private fun AppSettingsContent(
         }
 
         if (state.isPrimaryDevice) {
-          item {
-            Rows.TextRow(
-              text = stringResource(R.string.AccountSettingsFragment__account),
-              icon = painterResource(CoreUiR.drawable.symbol_person_circle_24),
-              onClick = {
-                callbacks.navigate(AppSettingsRoute.AccountRoute.Account)
-              }
-            )
+          if (shouldShowSettingsRow("account", "pin", "two step verification", "birthday", "phone number")) {
+            item {
+              Rows.TextRow(
+                text = stringResource(R.string.AccountSettingsFragment__account),
+                icon = painterResource(CoreUiR.drawable.symbol_person_circle_24),
+                onClick = {
+                  callbacks.navigate(AppSettingsRoute.AccountRoute.Account)
+                }
+              )
+            }
           }
 
+          if (shouldShowSettingsRow("linked devices", "devices", "laptop", "phone")) {
+            item {
+              Rows.TextRow(
+                text = stringResource(R.string.preferences__linked_devices),
+                icon = painterResource(CoreUiR.drawable.symbol_devices_24),
+                onClick = {
+                  callbacks.navigate(AppSettingsRoute.LinkDeviceRoute.LinkDevice)
+                },
+                enabled = isRegisteredAndUpToDate
+              )
+            }
+          }
+        }
+
+        if (shouldShowSettingsRow("donate", "signal donation", "subscription", "badges")) {
           item {
+            val context = LocalContext.current
+            val donateUrl = stringResource(R.string.donate_url)
+
             Rows.TextRow(
-              text = stringResource(R.string.preferences__linked_devices),
-              icon = painterResource(CoreUiR.drawable.symbol_devices_24),
-              onClick = {
-                callbacks.navigate(AppSettingsRoute.LinkDeviceRoute.LinkDevice)
+              text = {
+                Text(
+                  text = stringResource(R.string.preferences__donate_to_signal),
+                  modifier = Modifier.weight(1f)
+                )
+
+                if (state.hasExpiredGiftBadge) {
+                  Icon(
+                    painter = painterResource(R.drawable.symbol_info_fill_24),
+                    tint = colorResource(R.color.signal_accent_primary),
+                    contentDescription = null
+                  )
+                }
               },
-              enabled = isRegisteredAndUpToDate
+              icon = {
+                Icon(
+                  painter = painterResource(R.drawable.symbol_heart_24),
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.onSurface
+                )
+              },
+              onClick = {
+                if (state.allowUserToGoToDonationManagementScreen) {
+                  callbacks.navigate(AppSettingsRoute.DonationsRoute.Donations())
+                } else {
+                  CommunicationActions.openBrowserLink(context, donateUrl)
+                }
+              },
+              onLongClick = {
+                callbacks.copyDonorBadgeSubscriberIdToClipboard()
+              }
             )
           }
         }
 
-        item {
-          val context = LocalContext.current
-          val donateUrl = stringResource(R.string.donate_url)
-
-          Rows.TextRow(
-            text = {
-              Text(
-                text = stringResource(R.string.preferences__donate_to_signal),
-                modifier = Modifier.weight(1f)
-              )
-
-              if (state.hasExpiredGiftBadge) {
-                Icon(
-                  painter = painterResource(R.drawable.symbol_info_fill_24),
-                  tint = colorResource(R.color.signal_accent_primary),
-                  contentDescription = null
-                )
+        if (shouldShowSettingsRow("dashboard", "screen on time", "usage", "monitor")) {
+          item {
+            Rows.TextRow(
+              text = "Dashboard",
+              label = "Screen-on time and app usage monitor",
+              icon = painterResource(R.drawable.symbol_timer_24),
+              onClick = {
+                callbacks.navigate(AppSettingsRoute.Dashboard)
               }
-            },
-            icon = {
-              Icon(
-                painter = painterResource(R.drawable.symbol_heart_24),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface
-              )
-            },
-            onClick = {
-              if (state.allowUserToGoToDonationManagementScreen) {
-                callbacks.navigate(AppSettingsRoute.DonationsRoute.Donations())
-              } else {
-                CommunicationActions.openBrowserLink(context, donateUrl)
-              }
-            },
-            onLongClick = {
-              callbacks.copyDonorBadgeSubscriberIdToClipboard()
-            }
-          )
+            )
+          }
         }
 
         item {
           Dividers.Default()
         }
 
-        item {
-          Rows.TextRow(
-            text = stringResource(R.string.preferences__appearance),
-            icon = painterResource(R.drawable.symbol_appearance_24),
-            onClick = {
-              callbacks.navigate(AppSettingsRoute.AppearanceRoute.Appearance)
-            }
-          )
-        }
-
-        item {
-          Rows.TextRow(
-            text = stringResource(R.string.preferences_chats__chats),
-            icon = painterResource(R.drawable.symbol_chat_24),
-            onClick = {
-              callbacks.navigate(AppSettingsRoute.ChatsRoute.Chats)
-            },
-            enabled = isRegisteredAndUpToDate
-          )
-        }
-
-        item {
-          Rows.TextRow(
-            text = stringResource(R.string.preferences__stories),
-            icon = painterResource(R.drawable.symbol_stories_24),
-            onClick = {
-              callbacks.navigate(AppSettingsRoute.StoriesRoute.Privacy(titleId = R.string.preferences__stories))
-            },
-            enabled = isRegisteredAndUpToDate
-          )
-        }
-
-        item {
-          Rows.TextRow(
-            text = stringResource(R.string.preferences__notifications),
-            icon = painterResource(R.drawable.symbol_bell_24),
-            onClick = {
-              callbacks.navigate(AppSettingsRoute.NotificationsRoute.Notifications)
-            },
-            enabled = isRegisteredAndUpToDate
-          )
-        }
-
-        item {
-          Rows.TextRow(
-            text = stringResource(R.string.preferences__privacy),
-            icon = SignalIcons.Lock.painter,
-            onClick = {
-              callbacks.navigate(AppSettingsRoute.PrivacyRoute.Privacy)
-            },
-            enabled = isRegisteredAndUpToDate
-          )
-        }
-
-        if (state.isPrimaryDevice) {
+        if (shouldShowSettingsRow("appearance", "app ui", "glassmorphism", "liquid glass", "text font", "wallpaper", "app icon")) {
           item {
             Rows.TextRow(
-              icon = SignalIcons.Backup.imageVector,
-              text = stringResource(R.string.preferences_chats__backups),
+              text = stringResource(R.string.preferences__appearance),
+              icon = painterResource(R.drawable.symbol_appearance_24),
               onClick = {
-                callbacks.navigate(AppSettingsRoute.BackupsRoute.Backups())
-              },
-              onLongClick = {
-                callbacks.copyRemoteBackupsSubscriberIdToClipboard()
+                callbacks.navigate(AppSettingsRoute.AppearanceRoute.Appearance)
+              }
+            )
+          }
+        }
+
+        if (shouldShowSettingsRow("chats", "chat settings", "message text size", "night mode", "chat list view")) {
+          item {
+            Rows.TextRow(
+              text = stringResource(R.string.preferences_chats__chats),
+              icon = painterResource(R.drawable.symbol_chat_24),
+              onClick = {
+                callbacks.navigate(AppSettingsRoute.ChatsRoute.Chats)
               },
               enabled = isRegisteredAndUpToDate
             )
           }
         }
 
-        item {
-          Rows.TextRow(
-            text = stringResource(R.string.preferences__data_and_storage),
-            icon = painterResource(R.drawable.symbol_data_24),
-            onClick = {
-              callbacks.navigate(AppSettingsRoute.DataAndStorageRoute.DataAndStorage)
-            }
-          )
+        if (shouldShowSettingsRow("stories", "story privacy", "status")) {
+          item {
+            Rows.TextRow(
+              text = stringResource(R.string.preferences__stories),
+              icon = painterResource(R.drawable.symbol_stories_24),
+              onClick = {
+                callbacks.navigate(AppSettingsRoute.StoriesRoute.Privacy(titleId = R.string.preferences__stories))
+              },
+              enabled = isRegisteredAndUpToDate
+            )
+          }
         }
 
-        if (state.showAppUpdates) {
+        if (shouldShowSettingsRow("notifications", "alerts", "sounds")) {
+          item {
+            Rows.TextRow(
+              text = stringResource(R.string.preferences__notifications),
+              icon = painterResource(R.drawable.symbol_bell_24),
+              onClick = {
+                callbacks.navigate(AppSettingsRoute.NotificationsRoute.Notifications)
+              },
+              enabled = isRegisteredAndUpToDate
+            )
+          }
+        }
+
+        if (shouldShowSettingsRow("privacy", "last seen", "online", "birthday", "bio", "story", "face unlock", "biometric")) {
+          item {
+            Rows.TextRow(
+              text = stringResource(R.string.preferences__privacy),
+              icon = SignalIcons.Lock.painter,
+              onClick = {
+                callbacks.navigate(AppSettingsRoute.PrivacyRoute.Privacy)
+              },
+              enabled = isRegisteredAndUpToDate
+            )
+          }
+        }
+
+        if (state.isPrimaryDevice) {
+          if (shouldShowSettingsRow("backups", "backup", "remote backup", "local backup")) {
+            item {
+              Rows.TextRow(
+                icon = SignalIcons.Backup.imageVector,
+                text = stringResource(R.string.preferences_chats__backups),
+                onClick = {
+                  callbacks.navigate(AppSettingsRoute.BackupsRoute.Backups())
+                },
+                onLongClick = {
+                  callbacks.copyRemoteBackupsSubscriberIdToClipboard()
+                },
+                enabled = isRegisteredAndUpToDate
+              )
+            }
+          }
+        }
+
+        if (shouldShowSettingsRow("data and storage", "storage", "cache", "clear cache", "documents", "videos", "photos", "others")) {
+          item {
+            Rows.TextRow(
+              text = stringResource(R.string.preferences__data_and_storage),
+              icon = painterResource(R.drawable.symbol_data_24),
+              onClick = {
+                callbacks.navigate(AppSettingsRoute.DataAndStorageRoute.DataAndStorage)
+              }
+            )
+          }
+        }
+
+        if (state.showAppUpdates && shouldShowSettingsRow("app updates", "updates", "auto update", "check updates")) {
           item {
             Rows.TextRow(
               text = "App updates",
@@ -463,41 +518,43 @@ private fun AppSettingsContent(
             Dividers.Default()
           }
 
-          item {
-            Rows.TextRow(
-              text = {
-                Text(
-                  text = stringResource(R.string.preferences__payments),
-                  modifier = Modifier.weight(1f)
-                )
-
-                if (state.unreadPaymentsCount > 0) {
+          if (shouldShowSettingsRow("payments", "wallet", "payment")) {
+            item {
+              Rows.TextRow(
+                text = {
                   Text(
-                    text = state.unreadPaymentsCount.toString(),
-                    color = MaterialTheme.colorScheme.inverseOnSurface,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                      .background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(50)
-                      )
-                      .defaultMinSize(minWidth = 30.dp)
-                      .padding(4.dp)
+                    text = stringResource(R.string.preferences__payments),
+                    modifier = Modifier.weight(1f)
                   )
+
+                  if (state.unreadPaymentsCount > 0) {
+                    Text(
+                      text = state.unreadPaymentsCount.toString(),
+                      color = MaterialTheme.colorScheme.inverseOnSurface,
+                      style = MaterialTheme.typography.bodyMedium,
+                      textAlign = TextAlign.Center,
+                      modifier = Modifier
+                        .background(
+                          color = MaterialTheme.colorScheme.primary,
+                          shape = RoundedCornerShape(50)
+                        )
+                        .defaultMinSize(minWidth = 30.dp)
+                        .padding(4.dp)
+                    )
+                  }
+                },
+                icon = {
+                  Icon(
+                    painter = painterResource(R.drawable.symbol_payment_24),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface
+                  )
+                },
+                onClick = {
+                  callbacks.navigate(AppSettingsRoute.Payments)
                 }
-              },
-              icon = {
-                Icon(
-                  painter = painterResource(R.drawable.symbol_payment_24),
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.onSurface
-                )
-              },
-              onClick = {
-                callbacks.navigate(AppSettingsRoute.Payments)
-              }
-            )
+              )
+            }
           }
         }
 
@@ -551,6 +608,62 @@ private fun AppSettingsContent(
           }
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun SettingsSearchRow(
+  isOpen: Boolean,
+  query: String,
+  onOpenChanged: (Boolean) -> Unit,
+  onQueryChanged: (String) -> Unit
+) {
+  Column(
+    modifier = Modifier
+      .fillMaxWidth()
+      .horizontalGutters()
+      .padding(bottom = 8.dp)
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      modifier = Modifier
+        .fillMaxWidth()
+        .clickable {
+          onOpenChanged(!isOpen)
+        }
+        .padding(vertical = 8.dp)
+    ) {
+      IconButtons.IconButton(
+        onClick = {
+          onOpenChanged(!isOpen)
+        },
+        size = 40.dp,
+        colors = IconButtons.iconButtonColors(
+          containerColor = SignalTheme.colors.colorSurface4
+        )
+      ) {
+        Icon(
+          imageVector = SignalIcons.Search.imageVector,
+          contentDescription = null
+        )
+      }
+
+      Text(
+        text = "Search settings",
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.padding(start = 16.dp)
+      )
+    }
+
+    AnimatedVisibility(visible = isOpen) {
+      OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChanged,
+        singleLine = true,
+        label = { Text("Search settings") },
+        modifier = Modifier.fillMaxWidth()
+      )
     }
   }
 }

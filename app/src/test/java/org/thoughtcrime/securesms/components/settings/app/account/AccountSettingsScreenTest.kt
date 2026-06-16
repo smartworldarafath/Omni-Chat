@@ -373,6 +373,7 @@ class AccountSettingsScreenTest {
     registrationLockEnabled: Boolean = true,
     twoStepVerificationEnabled: Boolean = false,
     twoStepVerificationEmail: String? = null,
+    accountBirthday: String? = null,
     userUnregistered: Boolean = false,
     clientDeprecated: Boolean = false,
     canTransferWhileUnregistered: Boolean = true
@@ -385,6 +386,7 @@ class AccountSettingsScreenTest {
       registrationLockEnabled = registrationLockEnabled,
       twoStepVerificationEnabled = twoStepVerificationEnabled,
       twoStepVerificationEmail = twoStepVerificationEmail,
+      accountBirthday = accountBirthday,
       userUnregistered = userUnregistered,
       clientDeprecated = clientDeprecated,
       canTransferWhileUnregistered = canTransferWhileUnregistered

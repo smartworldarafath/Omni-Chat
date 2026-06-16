@@ -28,6 +28,7 @@ import org.thoughtcrime.securesms.jobs.OptimizeMediaJob
 import org.thoughtcrime.securesms.jobs.RestoreOptimizedMediaJob
 import org.thoughtcrime.securesms.keyvalue.KeepMessagesDuration
 import org.thoughtcrime.securesms.keyvalue.SignalStore
+import java.io.File
 
 class ManageStorageSettingsViewModel : ViewModel() {
 
@@ -56,9 +57,16 @@ class ManageStorageSettingsViewModel : ViewModel() {
   }
 
   fun refresh() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
       val breakdown: MediaTable.StorageBreakdown = media.getStorageBreakdown()
-      store.update { it.copy(breakdown = breakdown) }
+      store.update { it.copy(breakdown = breakdown, cacheBytes = cacheSize(AppDependencies.application.cacheDir)) }
+    }
+  }
+
+  fun clearSelectedCache(documents: Boolean, videos: Boolean, photos: Boolean, others: Boolean) {
+    viewModelScope.launch(Dispatchers.IO) {
+      clearCacheFiles(AppDependencies.application.cacheDir, documents, videos, photos, others)
+      store.update { it.copy(cacheBytes = cacheSize(AppDependencies.application.cacheDir)) }
     }
   }
 
@@ -67,6 +75,55 @@ class ManageStorageSettingsViewModel : ViewModel() {
       SignalDatabase.threads.deleteAllConversations()
       AppDependencies.messageNotifier.updateNotification(AppDependencies.application)
     }
+  }
+
+  private fun cacheSize(file: File?): Long {
+    if (file == null || !file.exists()) {
+      return 0L
+    }
+
+    if (file.isFile) {
+      return file.length()
+    }
+
+    return file.listFiles()?.sumOf { cacheSize(it) } ?: 0L
+  }
+
+  private fun clearCacheFiles(file: File?, documents: Boolean, videos: Boolean, photos: Boolean, others: Boolean): Boolean {
+    if (file == null || !file.exists()) {
+      return true
+    }
+
+    if (file.isDirectory) {
+      file.listFiles()?.forEach { clearCacheFiles(it, documents, videos, photos, others) }
+      return true
+    }
+
+    val category = cacheCategory(file)
+    val shouldDelete = when (category) {
+      CacheCategory.DOCUMENT -> documents
+      CacheCategory.VIDEO -> videos
+      CacheCategory.PHOTO -> photos
+      CacheCategory.OTHER -> others
+    }
+
+    return !shouldDelete || file.delete()
+  }
+
+  private fun cacheCategory(file: File): CacheCategory {
+    return when (file.extension.lowercase()) {
+      "jpg", "jpeg", "png", "webp", "gif", "heic", "avif" -> CacheCategory.PHOTO
+      "mp4", "mkv", "webm", "mov", "3gp" -> CacheCategory.VIDEO
+      "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "zip", "rar", "7z" -> CacheCategory.DOCUMENT
+      else -> CacheCategory.OTHER
+    }
+  }
+
+  private enum class CacheCategory {
+    DOCUMENT,
+    VIDEO,
+    PHOTO,
+    OTHER
   }
 
   fun setKeepMessagesDuration(newDuration: KeepMessagesDuration) {
@@ -177,6 +234,7 @@ class ManageStorageSettingsViewModel : ViewModel() {
     val lengthLimit: Int,
     val syncTrimDeletes: Boolean,
     val breakdown: MediaTable.StorageBreakdown? = null,
+    val cacheBytes: Long = 0,
     val onDeviceStorageOptimizationState: OnDeviceStorageOptimizationState = OnDeviceStorageOptimizationState.FEATURE_NOT_AVAILABLE,
     val storageOptimizationStateChanged: Boolean = false,
     val isPaidTierPending: Boolean = false

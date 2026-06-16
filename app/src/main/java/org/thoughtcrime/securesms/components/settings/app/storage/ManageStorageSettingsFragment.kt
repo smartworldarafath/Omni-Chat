@@ -9,14 +9,22 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.TextView
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +38,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.integerArrayResource
@@ -113,6 +123,9 @@ class ManageStorageSettingsFragment : ComposeFragment() {
             onSetChatLengthLimit = { navController.navigate("set-chat-length-limit") },
             onSyncTrimThreadDeletes = { viewModel.setSyncTrimDeletes(it) },
             onDeleteChatHistory = { navController.navigate("confirm-delete-chat-history") },
+            onClearSelectedCache = { documents, videos, photos, others ->
+              viewModel.clearSelectedCache(documents, videos, photos, others)
+            },
             onToggleOnDeviceStorageOptimization = { enabled ->
               if (state.isPaidTierPending) {
                 navController.navigate("paid-tier-pending")
@@ -268,6 +281,7 @@ private fun ManageStorageSettingsScreen(
   onSetChatLengthLimit: () -> Unit = {},
   onSyncTrimThreadDeletes: (Boolean) -> Unit = {},
   onDeleteChatHistory: () -> Unit = {},
+  onClearSelectedCache: (documents: Boolean, videos: Boolean, photos: Boolean, others: Boolean) -> Unit = { _, _, _, _ -> },
   onToggleOnDeviceStorageOptimization: (Boolean) -> Unit = {}
 ) {
   Scaffolds.Settings(
@@ -281,6 +295,13 @@ private fun ManageStorageSettingsScreen(
         .verticalScroll(rememberScrollState())
     ) {
       Texts.SectionHeader(text = stringResource(id = R.string.preferences_storage__storage_usage))
+
+      RealtimeStoragePieChart(state.breakdown)
+
+      CacheControlPanel(
+        cacheBytes = state.cacheBytes,
+        onClearSelectedCache = onClearSelectedCache
+      )
 
       StorageOverview(state.breakdown, onReviewStorage)
 
@@ -337,6 +358,149 @@ private fun ManageStorageSettingsScreen(
     }
   }
 }
+
+@Composable
+private fun RealtimeStoragePieChart(breakdown: MediaTable.StorageBreakdown?) {
+  val entries = listOf(
+    StorageSlice("Documents", breakdown?.documentSize ?: 0L, Color(0xFF7C4DFF)),
+    StorageSlice("Videos", breakdown?.videoSize ?: 0L, Color(0xFFFF6D3A)),
+    StorageSlice("Photos", breakdown?.photoSize ?: 0L, Color(0xFF30FCA0)),
+    StorageSlice("Others", breakdown?.audioSize ?: 0L, Color(0xFF38BDF8))
+  )
+  val total = entries.sumOf { it.bytes }.coerceAtLeast(1L)
+
+  Box(
+    modifier = Modifier
+      .padding(horizontal = 16.dp, vertical = 8.dp)
+      .fillMaxWidth()
+      .background(SignalTheme.colors.neutralSurface, RoundedCornerShape(24.dp))
+      .padding(18.dp)
+  ) {
+    Column {
+      Text(
+        text = "Storage usage",
+        style = MaterialTheme.typography.titleMedium
+      )
+
+      Canvas(
+        modifier = Modifier
+          .padding(top = 16.dp)
+          .fillMaxWidth()
+          .height(180.dp)
+      ) {
+        val diameter = minOf(size.width, size.height)
+        val left = (size.width - diameter) / 2f
+        var startAngle = -90f
+
+        entries.forEach { entry ->
+          val sweep = (entry.bytes / total.toFloat()) * 360f
+          drawArc(
+            color = entry.color,
+            startAngle = startAngle,
+            sweepAngle = sweep,
+            useCenter = true,
+            topLeft = androidx.compose.ui.geometry.Offset(left, 0f),
+            size = Size(diameter, diameter)
+          )
+          startAngle += sweep
+        }
+      }
+
+      entries.forEach { entry ->
+        Row(
+          horizontalArrangement = Arrangement.SpaceBetween,
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+        ) {
+          Text(
+            text = entry.label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = entry.color
+          )
+          Text(
+            text = entry.bytes.bytes.toUnitString(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun CacheControlPanel(
+  cacheBytes: Long,
+  onClearSelectedCache: (documents: Boolean, videos: Boolean, photos: Boolean, others: Boolean) -> Unit
+) {
+  var documents by remember { mutableStateOf(true) }
+  var videos by remember { mutableStateOf(true) }
+  var photos by remember { mutableStateOf(true) }
+  var others by remember { mutableStateOf(true) }
+
+  Rows.TextRow(
+    text = {
+      Column {
+        Text(
+          text = "Clear Cache",
+          style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+          text = "${cacheBytes.bytes.toUnitString()} cache accumulated",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.padding(top = 4.dp)
+        )
+
+        CacheSelectionRow("Documents", documents) { documents = it }
+        CacheSelectionRow("Videos", videos) { videos = it }
+        CacheSelectionRow("Photos", photos) { photos = it }
+        CacheSelectionRow("Others", others) { others = it }
+
+        Button(
+          onClick = {
+            onClearSelectedCache(documents, videos, photos, others)
+          },
+          modifier = Modifier
+            .padding(top = 12.dp)
+            .fillMaxWidth()
+        ) {
+          Text(text = "Clear Cache")
+        }
+      }
+    }
+  )
+}
+
+@Composable
+private fun CacheSelectionRow(
+  text: String,
+  checked: Boolean,
+  onCheckedChange: (Boolean) -> Unit
+) {
+  Row(
+    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(top = 6.dp)
+  ) {
+    Checkbox(
+      checked = checked,
+      onCheckedChange = onCheckedChange
+    )
+    Text(
+      text = text,
+      style = MaterialTheme.typography.bodyMedium
+    )
+  }
+}
+
+private data class StorageSlice(
+  val label: String,
+  val bytes: Long,
+  val color: Color
+)
 
 @Composable
 private fun StorageOverview(

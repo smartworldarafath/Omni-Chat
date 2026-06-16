@@ -40,6 +40,7 @@ sealed interface AppSettingsRoute : Parcelable {
   data object Payments : AppSettingsRoute
   data object Invite : AppSettingsRoute
   data object AppUpdates : AppSettingsRoute
+  data object Dashboard : AppSettingsRoute
 
   @Parcelize
   sealed interface StoriesRoute : AppSettingsRoute {

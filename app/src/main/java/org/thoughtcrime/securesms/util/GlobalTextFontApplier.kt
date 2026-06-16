@@ -22,6 +22,7 @@ object GlobalTextFontApplier {
     }
 
     if (SignalStore.settings.textFont.serialize() == "default") {
+      applyTo(decorView, null)
       return
     }
 

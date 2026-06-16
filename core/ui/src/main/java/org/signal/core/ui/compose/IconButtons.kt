@@ -23,8 +23,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -86,6 +88,14 @@ object IconButtons {
       modifier = modifier
         .minimumInteractiveComponentSize()
         .size(size)
+        .then(if (isLiquidGlass) Modifier.shadow(10.dp, shape, clip = false) else Modifier)
+        .graphicsLayer {
+          if (isLiquidGlass) {
+            rotationX = 2f
+            rotationY = -2f
+            cameraDistance = 24f
+          }
+        }
         .clip(shape)
         .background(color = containerColor)
         .border(

@@ -5,6 +5,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import org.thoughtcrime.securesms.dependencies.AppDependencies
+import org.thoughtcrime.securesms.keyvalue.SettingsValues
 import org.thoughtcrime.securesms.keyvalue.SignalStore
 import org.thoughtcrime.securesms.util.TextSecurePreferences
 import org.thoughtcrime.securesms.util.livedata.Store
@@ -34,6 +35,31 @@ class PrivacySettingsViewModel(
   fun setTypingIndicatorsEnabled(enabled: Boolean) {
     sharedPreferences.edit().putBoolean(TextSecurePreferences.TYPING_INDICATORS, enabled).apply()
     repository.syncTypingIndicatorsState()
+    refresh()
+  }
+
+  fun setLastSeenPrivacy(audience: SettingsValues.PrivacyAudience) {
+    SignalStore.settings.setLastSeenPrivacy(audience)
+    refresh()
+  }
+
+  fun setOnlinePrivacy(audience: SettingsValues.PrivacyAudience) {
+    SignalStore.settings.setOnlinePrivacy(audience)
+    refresh()
+  }
+
+  fun setBirthdayPrivacy(audience: SettingsValues.PrivacyAudience) {
+    SignalStore.settings.setBirthdayPrivacy(audience)
+    refresh()
+  }
+
+  fun setBioPrivacy(audience: SettingsValues.PrivacyAudience) {
+    SignalStore.settings.setBioPrivacy(audience)
+    refresh()
+  }
+
+  fun setStoryPrivacy(audience: SettingsValues.PrivacyAudience) {
+    SignalStore.settings.setStoryPrivacy(audience)
     refresh()
   }
 
@@ -76,6 +102,11 @@ class PrivacySettingsViewModel(
       blockedCount = 0,
       readReceipts = TextSecurePreferences.isReadReceiptsEnabled(AppDependencies.application),
       typingIndicators = TextSecurePreferences.isTypingIndicatorsEnabled(AppDependencies.application),
+      lastSeenPrivacy = SignalStore.settings.lastSeenPrivacy,
+      onlinePrivacy = SignalStore.settings.onlinePrivacy,
+      birthdayPrivacy = SignalStore.settings.birthdayPrivacy,
+      bioPrivacy = SignalStore.settings.bioPrivacy,
+      storyPrivacy = SignalStore.settings.storyPrivacy,
       screenLock = SignalStore.settings.screenLockEnabled,
       screenLockActivityTimeout = SignalStore.settings.screenLockTimeout,
       screenSecurity = TextSecurePreferences.isScreenSecurityEnabled(AppDependencies.application),

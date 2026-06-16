@@ -16,6 +16,7 @@ import androidx.core.app.ActivityOptionsCompat;
 import org.signal.core.util.logging.Log;
 import org.thoughtcrime.securesms.dependencies.AppDependencies;
 import org.thoughtcrime.securesms.util.AppStartup;
+import org.thoughtcrime.securesms.util.DisplayPerformanceController;
 import org.thoughtcrime.securesms.util.GlobalTextFontApplier;
 import org.signal.core.util.ConfigurationUtil;
 import org.thoughtcrime.securesms.util.WindowUtil;
@@ -36,6 +37,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     AppStartup.getInstance().onCriticalRenderEventStart();
     logEvent("onCreate()");
     super.onCreate(savedInstanceState);
+    DisplayPerformanceController.apply(this);
     GlobalTextFontApplier.install(this);
     AppStartup.getInstance().onCriticalRenderEventEnd();
   }
@@ -43,6 +45,7 @@ public abstract class BaseActivity extends AppCompatActivity {
   @Override
   protected void onResume() {
     super.onResume();
+    DisplayPerformanceController.apply(this);
     WindowUtil.initializeScreenshotSecurity(this, getWindow());
     GlobalTextFontApplier.install(this);
   }
@@ -71,6 +74,7 @@ public abstract class BaseActivity extends AppCompatActivity {
   public void onWindowFocusChanged(boolean hasFocus) {
     super.onWindowFocusChanged(hasFocus);
     if (hasFocus) {
+      DisplayPerformanceController.apply(this);
       GlobalTextFontApplier.install(this);
     }
   }

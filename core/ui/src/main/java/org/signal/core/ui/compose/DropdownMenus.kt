@@ -31,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
@@ -73,6 +75,14 @@ object DropdownMenus {
         ),
         content = { content(controller) },
         modifier = modifier
+          .then(if (isLiquidGlass) Modifier.shadow(18.dp, shape, clip = false) else Modifier)
+          .graphicsLayer {
+            if (isLiquidGlass) {
+              rotationX = 2f
+              rotationY = -2f
+              cameraDistance = 32f
+            }
+          }
           .background(if (isLiquidGlass) SignalTheme.colors.neutralSurface else SignalTheme.colors.colorSurface2, shape)
           .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isLiquidGlass) 0.34f else 0f), shape)
           .widthIn(min = 220.dp)

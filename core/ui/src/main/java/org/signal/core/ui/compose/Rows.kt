@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -545,6 +546,7 @@ object Rows {
     val isLiquidGlass = appUiMode == CoreUiDependencies.APP_UI_MODE_LIQUID_GLASS
     val shape = RoundedCornerShape(if (isLiquidGlass) 22.dp else 12.dp)
     return padding(horizontal = dimensionResource(id = R.dimen.gutter), vertical = 4.dp)
+      .then(if (isLiquidGlass) Modifier.shadow(10.dp, shape, clip = false) else Modifier)
       .background(SignalTheme.colors.neutralSurface, shape)
       .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isLiquidGlass) 0.30f else 0.16f), shape)
   }

@@ -39,6 +39,7 @@ import org.thoughtcrime.securesms.components.settings.PreferenceModel
 import org.thoughtcrime.securesms.components.settings.PreferenceViewHolder
 import org.thoughtcrime.securesms.components.settings.configure
 import org.thoughtcrime.securesms.crypto.MasterSecretUtil
+import org.thoughtcrime.securesms.keyvalue.SettingsValues
 import org.thoughtcrime.securesms.keyvalue.SignalStore
 import org.thoughtcrime.securesms.service.KeyCachingService
 import org.thoughtcrime.securesms.util.CommunicationActions
@@ -163,6 +164,41 @@ class PrivacySettingsFragment : DSLSettingsFragment(R.string.preferences__privac
         onClick = {
           viewModel.setTypingIndicatorsEnabled(!state.typingIndicators)
         }
+      )
+
+      audiencePref(
+        title = "Last Seen",
+        summary = "Who can see my last seen.",
+        value = state.lastSeenPrivacy,
+        onSelected = viewModel::setLastSeenPrivacy
+      )
+
+      audiencePref(
+        title = "Online",
+        summary = "Who can see I'm online.",
+        value = state.onlinePrivacy,
+        onSelected = viewModel::setOnlinePrivacy
+      )
+
+      audiencePref(
+        title = "Birthday",
+        summary = "Who can see my personal info.",
+        value = state.birthdayPrivacy,
+        onSelected = viewModel::setBirthdayPrivacy
+      )
+
+      audiencePref(
+        title = "Bio",
+        summary = "Who can see my bio.",
+        value = state.bioPrivacy,
+        onSelected = viewModel::setBioPrivacy
+      )
+
+      audiencePref(
+        title = "Story",
+        summary = "Who can see my story.",
+        value = state.storyPrivacy,
+        onSelected = viewModel::setStoryPrivacy
       )
 
       dividerPref()
@@ -301,27 +337,29 @@ class PrivacySettingsFragment : DSLSettingsFragment(R.string.preferences__privac
           summary = DSLSettingsText.from(R.string.preferences_app_protection__face_lock_summary),
           isChecked = isKeyguardSecure && state.screenLock,
           onClick = {
-            if (!isKeyguardSecure) {
-              showScreenLockUnavailableSnackbar()
-            } else if (!hasFaceLockCapability()) {
-              showFaceLockUnavailableSnackbar()
-            } else if (biometricAuth.canAuthenticate(requireContext())) {
-              pendingBiometricAction = PendingBiometricAction.FACE_LOCK
-              pendingScreenLockEnabled = !state.screenLock
-              biometricAuth.updatePromptInfo(createScreenLockPromptInfo(pendingScreenLockEnabled))
-              biometricAuth.authenticate(requireContext(), true) {
-                biometricDeviceLockLauncher.launch(
-                  getString(
-                    if (pendingScreenLockEnabled) {
-                      R.string.ScreenLockSettingsFragment__use_screen_lock
-                    } else {
-                      R.string.ScreenLockSettingsFragment__turn_off_signal_lock
-                    }
-                  )
-                )
+            when (getFaceUnlockAvailability()) {
+              FaceUnlockAvailability.UNSUPPORTED -> showFaceLockUnsupportedSnackbar()
+              FaceUnlockAvailability.NOT_ENROLLED -> showFaceLockNotEnrolledSnackbar()
+              FaceUnlockAvailability.READY -> {
+                if (!isKeyguardSecure) {
+                  showScreenLockUnavailableSnackbar()
+                } else {
+                  pendingBiometricAction = PendingBiometricAction.FACE_LOCK
+                  pendingScreenLockEnabled = !state.screenLock
+                  biometricAuth.updatePromptInfo(createScreenLockPromptInfo(pendingScreenLockEnabled))
+                  biometricAuth.authenticate(requireContext(), true) {
+                    biometricDeviceLockLauncher.launch(
+                      getString(
+                        if (pendingScreenLockEnabled) {
+                          R.string.ScreenLockSettingsFragment__use_screen_lock
+                        } else {
+                          R.string.ScreenLockSettingsFragment__turn_off_signal_lock
+                        }
+                      )
+                    )
+                  }
+                }
               }
-            } else {
-              showFaceLockUnavailableSnackbar()
             }
           },
           isEnabled = isKeyguardSecure
@@ -389,6 +427,55 @@ class PrivacySettingsFragment : DSLSettingsFragment(R.string.preferences__privac
     }
   }
 
+  private fun DSLConfiguration.audiencePref(
+    title: String,
+    summary: String,
+    value: SettingsValues.PrivacyAudience,
+    onSelected: (SettingsValues.PrivacyAudience) -> Unit
+  ) {
+    customPref(
+      ValueClickPreference(
+        value = DSLSettingsText.from(value.displayLabel()),
+        contentDescription = DSLSettingsText.from(value.displayLabel()),
+        clickPreference = ClickPreference(
+          title = DSLSettingsText.from(title),
+          summary = DSLSettingsText.from(summary),
+          onClick = {
+            showAudienceDialog(title, value, onSelected)
+          }
+        )
+      )
+    )
+  }
+
+  private fun showAudienceDialog(
+    title: String,
+    selected: SettingsValues.PrivacyAudience,
+    onSelected: (SettingsValues.PrivacyAudience) -> Unit
+  ) {
+    val values = SettingsValues.PrivacyAudience.values()
+    val labels = values.map { it.displayLabel() }.toTypedArray()
+    val selectedIndex = values.indexOf(selected).coerceAtLeast(0)
+
+    MaterialAlertDialogBuilder(requireContext())
+      .setTitle(title)
+      .setSingleChoiceItems(labels, selectedIndex) { dialog, which ->
+        onSelected(values[which])
+        dialog.dismiss()
+      }
+      .setNegativeButton(android.R.string.cancel, null)
+      .show()
+  }
+
+  private fun SettingsValues.PrivacyAudience.displayLabel(): String {
+    return when (this) {
+      SettingsValues.PrivacyAudience.EVERYBODY -> "Everybody"
+      SettingsValues.PrivacyAudience.MY_CONTACTS -> "My contacts"
+      SettingsValues.PrivacyAudience.MY_CONTACTS_EXCEPT -> "My contacts except..."
+      SettingsValues.PrivacyAudience.NOBODY -> "Nobody"
+    }
+  }
+
   private fun createPaymentLockPromptInfo(): PromptInfo {
     return PromptInfo.Builder()
       .setAllowedAuthenticators(BiometricDeviceAuthentication.ALLOWED_AUTHENTICATORS)
@@ -436,9 +523,46 @@ class PrivacySettingsFragment : DSLSettingsFragment(R.string.preferences__privac
       .show()
   }
 
+  private fun showFaceLockNotEnrolledSnackbar() {
+    Snackbar
+      .make(
+        requireView(),
+        "Turn on Face ID from your phone settings.",
+        Snackbar.LENGTH_LONG
+      )
+      .setAction(R.string.PaymentsHomeFragment__enable) {
+        openBiometricSettings()
+      }
+      .show()
+  }
+
+  private fun showFaceLockUnsupportedSnackbar() {
+    Snackbar
+      .make(
+        requireView(),
+        "This device doesn't have Face Unlock support.",
+        Snackbar.LENGTH_LONG
+      )
+      .show()
+  }
+
   private fun hasFaceLockCapability(): Boolean {
     return Build.VERSION.SDK_INT >= 29 &&
       requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_FACE)
+  }
+
+  private fun getFaceUnlockAvailability(): FaceUnlockAvailability {
+    if (!hasFaceLockCapability()) {
+      return FaceUnlockAvailability.UNSUPPORTED
+    }
+
+    return when (BiometricManager.from(requireContext()).canAuthenticate(BiometricDeviceAuthentication.BIOMETRIC_AUTHENTICATORS)) {
+      BiometricManager.BIOMETRIC_SUCCESS -> FaceUnlockAvailability.READY
+      BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> FaceUnlockAvailability.NOT_ENROLLED
+      BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
+      BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> FaceUnlockAvailability.UNSUPPORTED
+      else -> FaceUnlockAvailability.NOT_ENROLLED
+    }
   }
 
   private fun handleBiometricAuthenticationSuccess() {
@@ -503,6 +627,12 @@ class PrivacySettingsFragment : DSLSettingsFragment(R.string.preferences__privac
     PAYMENT_LOCK,
     SCREEN_LOCK,
     FACE_LOCK
+  }
+
+  private enum class FaceUnlockAvailability {
+    READY,
+    NOT_ENROLLED,
+    UNSUPPORTED
   }
 
   private class ValueClickPreference(

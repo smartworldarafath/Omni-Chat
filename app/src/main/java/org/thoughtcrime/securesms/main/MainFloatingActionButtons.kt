@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -250,7 +251,14 @@ private fun MainFloatingActionButton(
     shape = shape,
     modifier = modifier
       .size(ACTION_BUTTON_SIZE)
-      .shadow(shadowElevation, shape)
+      .shadow(if (isLiquidGlass) 14.dp else shadowElevation, shape, clip = false)
+      .graphicsLayer {
+        if (isLiquidGlass) {
+          rotationX = 3f
+          rotationY = -3f
+          cameraDistance = 28f
+        }
+      }
       .border(
         width = if (isLiquidGlass) 1.dp else 0.dp,
         color = MaterialTheme.colorScheme.outline.copy(alpha = if (isLiquidGlass) 0.34f else 0f),

@@ -46,6 +46,11 @@ class AccountSettingsViewModel : ViewModel() {
     refreshState()
   }
 
+  fun setAccountBirthday(birthday: String?) {
+    SignalStore.settings.setAccountBirthday(birthday)
+    refreshState()
+  }
+
   fun disableTwoStepVerification() {
     SignalStore.settings.clearTwoStepVerification()
     refreshState()
@@ -72,6 +77,7 @@ class AccountSettingsViewModel : ViewModel() {
       registrationLockEnabled = SignalStore.svr.isRegistrationLockEnabled,
       twoStepVerificationEnabled = SignalStore.settings.isTwoStepVerificationEnabled,
       twoStepVerificationEmail = SignalStore.settings.twoStepVerificationEmail,
+      accountBirthday = SignalStore.settings.accountBirthday,
       userUnregistered = TextSecurePreferences.isUnauthorizedReceived(AppDependencies.application),
       clientDeprecated = SignalStore.misc.isClientDeprecated,
       canTransferWhileUnregistered = true

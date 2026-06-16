@@ -34,6 +34,7 @@ public class FrameRateTracker {
   private long lastFrameTimeNanos;
 
   private long consecutiveFrameWarnings;
+  private int  framesSinceRefreshRateUpdate;
 
   public FrameRateTracker(@NonNull Application application) {
     this.context = application;
@@ -73,9 +74,9 @@ public class FrameRateTracker {
         Log.d(TAG, String.format(Locale.ENGLISH, "Refresh rate changed from %.2f hz to %.2f hz", refreshRate, newRefreshRate));
       }
 
-      this.refreshRate             = getDisplayRefreshRate(context);
+      this.refreshRate             = Math.max(30, newRefreshRate);
       this.idealTimePerFrameNanos  = (long) (TimeUnit.SECONDS.toNanos(1) / refreshRate);
-      this.badFrameThresholdNanos  = idealTimePerFrameNanos * (int) (refreshRate / 4);
+      this.badFrameThresholdNanos  = Math.max(idealTimePerFrameNanos * 2, TimeUnit.MILLISECONDS.toNanos(24));
     }
   }
 
@@ -85,9 +86,14 @@ public class FrameRateTracker {
       long   elapsedNanos = frameTimeNanos - lastFrameTimeNanos;
       double fps          = TimeUnit.SECONDS.toNanos(1) / (double) elapsedNanos;
 
+      if (++framesSinceRefreshRateUpdate >= 120) {
+        framesSinceRefreshRateUpdate = 0;
+        updateRefreshRate();
+      }
+
       if (elapsedNanos > badFrameThresholdNanos) {
         if (consecutiveFrameWarnings < MAX_CONSECUTIVE_FRAME_LOGS) {
-          long droppedFrames = elapsedNanos / idealTimePerFrameNanos;
+          long droppedFrames = Math.max(1, Math.round(elapsedNanos / (double) idealTimePerFrameNanos) - 1);
           Log.w(TAG, String.format(Locale.ENGLISH, "Bad frame! Took %d ms (%d dropped frames, or %.2f FPS)", TimeUnit.NANOSECONDS.toMillis(elapsedNanos), droppedFrames, fps));
           consecutiveFrameWarnings++;
         }

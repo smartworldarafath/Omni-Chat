@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -168,6 +169,7 @@ fun MainNavigationBar(
         .fillMaxWidth()
         .height(if (state.compact) 64.dp else 96.dp)
         .padding(horizontal = 20.dp, vertical = 8.dp)
+        .shadow(18.dp, dockShape, clip = false)
         .clip(dockShape)
         .background(SignalTheme.colors.neutralSurface, dockShape)
         .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.36f), dockShape)
@@ -371,6 +373,7 @@ private fun NavigationDestinationIcon(
 
   val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(destination.icon))
   val progress by animateFloatAsState(targetValue = if (selected) 1f else 0f, animationSpec = tween(durationMillis = composition?.duration?.toInt() ?: 0))
+  val isLiquidGlass = LocalAppUiMode.current == CoreUiDependencies.APP_UI_MODE_LIQUID_GLASS
   val iconScale by animateFloatAsState(
     targetValue = if (selected) 1.12f else 0.94f,
     animationSpec = tween(durationMillis = 240),
@@ -386,6 +389,12 @@ private fun NavigationDestinationIcon(
       .graphicsLayer {
         scaleX = iconScale
         scaleY = iconScale
+        if (isLiquidGlass) {
+          rotationX = if (selected) 8f else 3f
+          rotationY = if (selected) -8f else -3f
+          shadowElevation = if (selected) 14f else 7f
+          cameraDistance = 28f
+        }
       }
   )
 }

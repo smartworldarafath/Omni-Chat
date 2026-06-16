@@ -65,6 +65,8 @@ class AppSettingsActivity : DSLSettingsActivity(), GooglePayComponent {
         AppSettingsRoute.DataAndStorageRoute.Proxy -> AppSettingsFragmentDirections.actionDirectToEditProxyFragment()
         AppSettingsRoute.NotificationsRoute.Notifications -> AppSettingsFragmentDirections.actionDirectToNotificationsSettingsFragment()
         AppSettingsRoute.ChangeNumberRoute.Start -> AppSettingsFragmentDirections.actionDirectToChangeNumberFragment()
+        AppSettingsRoute.AppUpdates -> AppSettingsFragmentDirections.actionAppSettingsFragmentToAppUpdatesSettingsFragment()
+        AppSettingsRoute.Dashboard -> AppSettingsFragmentDirections.actionAppSettingsFragmentToDashboardSettingsFragment()
         is AppSettingsRoute.DonationsRoute.Donations -> AppSettingsFragmentDirections.actionDirectToManageDonations().setDirectToCheckoutType(appSettingsRoute.directToCheckoutType)
         AppSettingsRoute.NotificationsRoute.NotificationProfiles -> AppSettingsFragmentDirections.actionDirectToNotificationProfiles()
         is AppSettingsRoute.NotificationsRoute.EditProfile -> AppSettingsFragmentDirections.actionDirectToCreateNotificationProfiles()
@@ -116,6 +118,7 @@ class AppSettingsActivity : DSLSettingsActivity(), GooglePayComponent {
         wasConfigurationUpdated = true
         if (key == SettingsValues.TEXT_FONT) {
           GlobalTextFontApplier.install(this)
+          recreate()
         }
       } else if (key == SettingsValues.LANGUAGE) {
         CachedInflater.from(this).clear()

@@ -128,6 +128,13 @@
             app:popEnterAnim="@anim/fragment_close_enter"
             app:popExitAnim="@anim/fragment_close_exit" />
         <action
+            android:id="@+id/action_appSettingsFragment_to_dashboardSettingsFragment"
+            app:destination="@id/dashboardSettingsFragment"
+            app:enterAnim="@anim/fragment_open_enter"
+            app:exitAnim="@anim/fragment_open_exit"
+            app:popEnterAnim="@anim/fragment_close_enter"
+            app:popExitAnim="@anim/fragment_close_exit" />
+        <action
             android:id="@+id/action_appSettingsFragment_to_internalSettingsFragment"
             app:destination="@id/internalSettingsFragment"
             app:enterAnim="@anim/fragment_open_enter"
@@ -978,6 +985,11 @@
         android:id="@+id/appUpdatesFragment"
         android:name="org.thoughtcrime.securesms.components.settings.app.updates.AppUpdatesSettingsFragment"
         android:label="app_update_fragment" />
+
+    <fragment
+        android:id="@+id/dashboardSettingsFragment"
+        android:name="org.thoughtcrime.securesms.components.settings.app.dashboard.DashboardSettingsFragment"
+        android:label="dashboard_settings_fragment" />
 
     <!-- Subscriptions -->
     <fragment

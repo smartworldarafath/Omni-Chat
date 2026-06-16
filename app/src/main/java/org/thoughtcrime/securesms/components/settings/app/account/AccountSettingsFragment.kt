@@ -1,5 +1,6 @@
 package org.thoughtcrime.securesms.components.settings.app.account
 
+import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Typeface
@@ -64,10 +65,14 @@ import org.thoughtcrime.securesms.util.PlayStoreUtil
 import org.thoughtcrime.securesms.util.ViewUtil
 import org.thoughtcrime.securesms.util.navigation.safeNavigate
 import org.whispersystems.signalservice.api.kbs.PinHashUtil
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 class AccountSettingsFragment : ComposeFragment() {
 
   private val viewModel: AccountSettingsViewModel by viewModels()
+  private val birthdayStorageFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
     if (requestCode == CreateSvrPinActivity.REQUEST_NEW_PIN && resultCode == CreateSvrPinActivity.RESULT_OK) {
@@ -313,6 +318,38 @@ class AccountSettingsFragment : ComposeFragment() {
     emailEditText.post { ViewUtil.focusAndShowKeyboard(emailEditText) }
   }
 
+  private fun openBirthdayPicker() {
+    val calendar = Calendar.getInstance()
+    viewModel.state.value.accountBirthday
+      ?.let { runCatching { birthdayStorageFormat.parse(it) }.getOrNull() }
+      ?.let { calendar.time = it }
+
+    DatePickerDialog(
+      requireContext(),
+      { _, year, month, dayOfMonth ->
+        val selected = Calendar.getInstance().apply {
+          set(Calendar.YEAR, year)
+          set(Calendar.MONTH, month)
+          set(Calendar.DAY_OF_MONTH, dayOfMonth)
+          set(Calendar.HOUR_OF_DAY, 0)
+          set(Calendar.MINUTE, 0)
+          set(Calendar.SECOND, 0)
+          set(Calendar.MILLISECOND, 0)
+        }
+        viewModel.setAccountBirthday(birthdayStorageFormat.format(selected.time))
+        Toast.makeText(requireContext(), "Birthday added to your account", Toast.LENGTH_SHORT).show()
+      },
+      calendar.get(Calendar.YEAR),
+      calendar.get(Calendar.MONTH),
+      calendar.get(Calendar.DAY_OF_MONTH)
+    ).apply {
+      setButton(DatePickerDialog.BUTTON_NEUTRAL, "Remove") { _, _ ->
+        viewModel.setAccountBirthday(null)
+      }
+      show()
+    }
+  }
+
   private fun createTwoStepPinEditText(): EditText {
     return EditText(requireContext()).apply {
       hint = getString(R.string.AccountSettingsFragment__six_digit_pin)
@@ -393,6 +430,10 @@ class AccountSettingsFragment : ComposeFragment() {
       this@AccountSettingsFragment.openTwoStepVerification()
     }
 
+    override fun openBirthdayPicker() {
+      this@AccountSettingsFragment.openBirthdayPicker()
+    }
+
     override fun openChangeNumberFlow() {
       findNavController().safeNavigate(R.id.action_accountSettingsFragment_to_changePhoneNumberFragment)
     }
@@ -436,6 +477,7 @@ interface AccountSettingsScreenCallbacks {
   fun setRegistrationLockEnabled(enabled: Boolean) = Unit
   fun openAdvancedPinSettings() = Unit
   fun openTwoStepVerification() = Unit
+  fun openBirthdayPicker() = Unit
   fun openChangeNumberFlow() = Unit
   fun openDeviceTransferFlow() = Unit
   fun openExportAccountDataFlow() = Unit
@@ -455,6 +497,7 @@ object AccountSettingsTestTags {
   const val ROW_REGISTRATION_LOCK = "row-registration-lock"
   const val ROW_ADVANCED_PIN_SETTINGS = "row-advanced-pin-settings"
   const val ROW_TWO_STEP_VERIFICATION = "row-two-step-verification"
+  const val ROW_ACCOUNT_BIRTHDAY = "row-account-birthday"
   const val ROW_CHANGE_PHONE_NUMBER = "row-change-phone-number"
   const val ROW_TRANSFER_ACCOUNT = "row-transfer-account"
   const val ROW_REQUEST_ACCOUNT_DATA = "row-request-account-data"
@@ -569,6 +612,23 @@ fun AccountSettingsScreen(
           enabled = state.isNotDeprecatedOrUnregistered(),
           onClick = callbacks::openTwoStepVerification,
           modifier = Modifier.testTag(AccountSettingsTestTags.ROW_TWO_STEP_VERIFICATION)
+        )
+      }
+
+      item {
+        val birthdayLabel = remember(state.accountBirthday) {
+          state.accountBirthday
+            ?.let { runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(it) }.getOrNull() }
+            ?.let { SimpleDateFormat("MMMM d", Locale.US).format(it) }
+            ?: "Not set"
+        }
+
+        Rows.TextRow(
+          text = "Add Birthday",
+          label = birthdayLabel,
+          enabled = state.isNotDeprecatedOrUnregistered(),
+          onClick = callbacks::openBirthdayPicker,
+          modifier = Modifier.testTag(AccountSettingsTestTags.ROW_ACCOUNT_BIRTHDAY)
         )
       }
 
@@ -699,6 +759,7 @@ private fun AccountSettingsScreenPreview() {
         registrationLockEnabled = true,
         twoStepVerificationEnabled = true,
         twoStepVerificationEmail = "signal@example.com",
+        accountBirthday = "2000-01-01",
         userUnregistered = false,
         clientDeprecated = false,
         canTransferWhileUnregistered = true

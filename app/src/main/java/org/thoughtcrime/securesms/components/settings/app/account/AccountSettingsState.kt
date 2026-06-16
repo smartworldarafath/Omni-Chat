@@ -10,6 +10,7 @@ data class AccountSettingsState(
   val registrationLockEnabled: Boolean,
   val twoStepVerificationEnabled: Boolean,
   val twoStepVerificationEmail: String?,
+  val accountBirthday: String?,
   val userUnregistered: Boolean,
   val clientDeprecated: Boolean,
   val canTransferWhileUnregistered: Boolean

@@ -83,6 +83,12 @@ public final class SettingsValues extends SignalStoreValues {
   private static final String TWO_STEP_VERIFICATION_EMAIL             = "settings.twoStepVerification.email";
   private static final String TWO_STEP_VERIFICATION_PIN_SALT          = "settings.twoStepVerification.pinSalt";
   private static final String TWO_STEP_VERIFICATION_PIN_HASH          = "settings.twoStepVerification.pinHash";
+  private static final String ACCOUNT_BIRTHDAY                        = "settings.account.birthday";
+  private static final String PRIVACY_LAST_SEEN                       = "settings.privacy.last_seen";
+  private static final String PRIVACY_ONLINE                          = "settings.privacy.online";
+  private static final String PRIVACY_BIRTHDAY                        = "settings.privacy.birthday";
+  private static final String PRIVACY_BIO                             = "settings.privacy.bio";
+  private static final String PRIVACY_STORY                           = "settings.privacy.story";
   private static final String AUTOMATIC_VERIFICATION_ENABLED          = "settings.automatic.verification.enabled";
   private static final String FORCE_WEBSOCKET_MODE                    = "settings.force.websocket.mode.2";
 
@@ -165,7 +171,13 @@ public final class SettingsValues extends SignalStoreValues {
                          PASSPHRASE_TIMEOUT_ENABLED,
                          PASSPHRASE_TIMEOUT,
                          SCREEN_LOCK_ENABLED,
-                         SCREEN_LOCK_TIMEOUT);
+                         SCREEN_LOCK_TIMEOUT,
+                         ACCOUNT_BIRTHDAY,
+                         PRIVACY_LAST_SEEN,
+                         PRIVACY_ONLINE,
+                         PRIVACY_BIRTHDAY,
+                         PRIVACY_BIO,
+                         PRIVACY_STORY);
   }
 
   public @NonNull LiveData<String> getOnConfigurationSettingChanged() {
@@ -656,6 +668,54 @@ public final class SettingsValues extends SignalStoreValues {
               .apply();
   }
 
+  public @Nullable String getAccountBirthday() {
+    return getString(ACCOUNT_BIRTHDAY, null);
+  }
+
+  public void setAccountBirthday(@Nullable String birthday) {
+    putString(ACCOUNT_BIRTHDAY, birthday);
+  }
+
+  public @NonNull PrivacyAudience getLastSeenPrivacy() {
+    return PrivacyAudience.deserialize(getString(PRIVACY_LAST_SEEN, PrivacyAudience.EVERYBODY.serialize()));
+  }
+
+  public void setLastSeenPrivacy(@NonNull PrivacyAudience audience) {
+    putString(PRIVACY_LAST_SEEN, audience.serialize());
+  }
+
+  public @NonNull PrivacyAudience getOnlinePrivacy() {
+    return PrivacyAudience.deserialize(getString(PRIVACY_ONLINE, PrivacyAudience.EVERYBODY.serialize()));
+  }
+
+  public void setOnlinePrivacy(@NonNull PrivacyAudience audience) {
+    putString(PRIVACY_ONLINE, audience.serialize());
+  }
+
+  public @NonNull PrivacyAudience getBirthdayPrivacy() {
+    return PrivacyAudience.deserialize(getString(PRIVACY_BIRTHDAY, PrivacyAudience.MY_CONTACTS.serialize()));
+  }
+
+  public void setBirthdayPrivacy(@NonNull PrivacyAudience audience) {
+    putString(PRIVACY_BIRTHDAY, audience.serialize());
+  }
+
+  public @NonNull PrivacyAudience getBioPrivacy() {
+    return PrivacyAudience.deserialize(getString(PRIVACY_BIO, PrivacyAudience.MY_CONTACTS.serialize()));
+  }
+
+  public void setBioPrivacy(@NonNull PrivacyAudience audience) {
+    putString(PRIVACY_BIO, audience.serialize());
+  }
+
+  public @NonNull PrivacyAudience getStoryPrivacy() {
+    return PrivacyAudience.deserialize(getString(PRIVACY_STORY, PrivacyAudience.MY_CONTACTS.serialize()));
+  }
+
+  public void setStoryPrivacy(@NonNull PrivacyAudience audience) {
+    putString(PRIVACY_STORY, audience.serialize());
+  }
+
   public boolean getAutomaticVerificationEnabled() {
     return getBoolean(AUTOMATIC_VERIFICATION_ENABLED, true);
   }
@@ -842,6 +902,35 @@ public final class SettingsValues extends SignalStoreValues {
         case "comfortable":
         default:
           return COMFORTABLE;
+      }
+    }
+  }
+
+  public enum PrivacyAudience {
+    EVERYBODY("everybody"),
+    MY_CONTACTS("my_contacts"),
+    MY_CONTACTS_EXCEPT("my_contacts_except"),
+    NOBODY("nobody");
+
+    private final String value;
+
+    PrivacyAudience(String value) {
+      this.value = value;
+    }
+
+    public @NonNull String serialize() {
+      return value;
+    }
+
+    public static @NonNull PrivacyAudience deserialize(@Nullable String value) {
+      if ("my_contacts".equals(value)) {
+        return MY_CONTACTS;
+      } else if ("my_contacts_except".equals(value)) {
+        return MY_CONTACTS_EXCEPT;
+      } else if ("nobody".equals(value)) {
+        return NOBODY;
+      } else {
+        return EVERYBODY;
       }
     }
   }
